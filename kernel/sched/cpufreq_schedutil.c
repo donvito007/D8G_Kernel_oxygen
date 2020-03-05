@@ -25,7 +25,8 @@ struct sugov_tunables {
 	unsigned int		hispeed_load;
 	unsigned int		hispeed_freq;
 	unsigned int		rtg_boost_freq;
-	bool			pl;
+	bool				pl;
+	bool 				exp_util;
 };
 
 struct sugov_policy {
@@ -337,14 +338,14 @@ static unsigned int get_next_freq(struct sugov_policy *sg_policy,
 				policy->cpuinfo.max_freq : policy->cur;
 
 #if IS_ENABLED(CONFIG_PACKAGE_RUNTIME_INFO)
-	walt_freq = map_util_freq(util, freq, max);
+	walt_freq = map_util_freq(util, freq, max, sg_policy->tunables->exp_util);
 	freq = glk_cal_freq(policy, util, max);
 	if (!freq)
 		freq = glk_freq_limit(policy, &walt_freq);
 	else
 		sg_policy->need_freq_update = true;
 #else
-	freq = map_util_freq(util, freq, max);
+	freq = map_util_freq(util, freq, max, sg_policy->tunables->exp_util);
 #endif
 
 	if (freq == sg_policy->cached_raw_freq && !sg_policy->need_freq_update)
@@ -1151,10 +1152,29 @@ static ssize_t pl_store(struct gov_attr_set *attr_set, const char *buf,
 	return count;
 }
 
+static ssize_t exp_util_show(struct gov_attr_set *attr_set, char *buf)
+{
+	struct sugov_tunables *tunables = to_sugov_tunables(attr_set);
+
+	return scnprintf(buf, PAGE_SIZE, "%u\n", tunables->exp_util);
+}
+
+static ssize_t exp_util_store(struct gov_attr_set *attr_set, const char *buf,
+				   size_t count)
+{
+	struct sugov_tunables *tunables = to_sugov_tunables(attr_set);
+
+	if (kstrtobool(buf, &tunables->exp_util))
+		return -EINVAL;
+
+	return count;
+}
+
 static struct governor_attr hispeed_load = __ATTR_RW(hispeed_load);
 static struct governor_attr hispeed_freq = __ATTR_RW(hispeed_freq);
 static struct governor_attr rtg_boost_freq = __ATTR_RW(rtg_boost_freq);
 static struct governor_attr pl = __ATTR_RW(pl);
+static struct governor_attr exp_util = __ATTR_RW(exp_util);
 
 static struct attribute *sugov_attributes[] = {
 	&up_rate_limit_us.attr,
@@ -1164,6 +1184,7 @@ static struct attribute *sugov_attributes[] = {
 	&hispeed_freq.attr,
 	&rtg_boost_freq.attr,
 	&pl.attr,
+	&exp_util.attr,
 	NULL
 };
 
@@ -1283,6 +1304,7 @@ static void sugov_tunables_save(struct cpufreq_policy *policy,
 	}
 
 	cached->pl = tunables->pl;
+	cached->exp_util = tunables->exp_util;
 	cached->hispeed_load = tunables->hispeed_load;
 	cached->rtg_boost_freq = tunables->rtg_boost_freq;
 	cached->hispeed_freq = tunables->hispeed_freq;
@@ -1307,6 +1329,7 @@ static void sugov_tunables_restore(struct cpufreq_policy *policy)
 		return;
 
 	tunables->pl = cached->pl;
+	tunables->exp_util = cached->exp_util;
 	tunables->hispeed_load = cached->hispeed_load;
 	tunables->rtg_boost_freq = cached->rtg_boost_freq;
 	tunables->hispeed_freq = cached->hispeed_freq;
