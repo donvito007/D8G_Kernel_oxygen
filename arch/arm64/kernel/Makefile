@@ -72,6 +72,9 @@ arm64-obj-$(CONFIG_SHADOW_CALL_STACK)	+= scs.o
 obj-y					+= $(arm64-obj-y) vdso/ probes/
 obj-m					+= $(arm64-obj-m)
 obj-$(CONFIG_COMPAT_VDSO)		+= vdso32/
+
+arm64-obj-$(CONFIG_HWCONF_MANAGER)     += hwconf_manager.o
+
 head-y					:= head.o
 extra-y					+= $(head-y) vmlinux.lds
 
