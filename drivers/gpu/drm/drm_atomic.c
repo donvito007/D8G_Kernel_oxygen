@@ -2585,7 +2585,6 @@ static int __drm_mode_atomic_ioctl(struct drm_device *dev, void *data,
 #ifdef CONFIG_CPU_INPUT_BOOST
 			cpu_input_boost_kick();
 #endif
-			devfreq_boost_kick(DEVFREQ_MSM_CPU_LLCCBW);
 			devfreq_boost_kick(DEVFREQ_MSM_LLCCBW_DDR);
 		}
 	}
