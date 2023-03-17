@@ -1399,7 +1399,6 @@ static int sugov_init(struct cpufreq_policy *policy)
 		tunables->rtg_boost_freq = DEFAULT_CPU7_RTG_BOOST_FREQ;
 		break;
 	}
->>>>>>> 344c8569d468 (Revert "Revert "cpufreq: schedutil: Fix for CR 2040904"")
 
 	policy->governor_data = sg_policy;
 	sg_policy->tunables = tunables;
