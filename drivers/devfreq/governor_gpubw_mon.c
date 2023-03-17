@@ -102,8 +102,7 @@ static const struct device_attribute *gpubw_attr_list[] = {
 };
 
 static int devfreq_gpubw_get_target(struct devfreq *df,
-				unsigned long *freq,
-				u32 *flag)
+		unsigned long *freq)
 {
 
 	struct devfreq_msm_adreno_tz_data *priv = df->data;
