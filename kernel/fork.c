@@ -115,6 +115,9 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/task.h>
 
+#ifdef CONFIG_OPLUS_FEATURE_IM
+#include <linux/im/im.h>
+#endif
 #ifdef CONFIG_OPLUS_FEATURE_INPUT_BOOST_V4
 #include <linux/tuning/frame_init.h>
 #endif /* CONFIG_OPLUS_FEATURE_INPUT_BOOST_V4 */
@@ -2252,6 +2255,11 @@ static __latent_entropy struct task_struct *copy_process(
 	uprobe_copy_process(p, clone_flags);
 
 	copy_oom_score_adj(clone_flags, p);
+#ifdef CONFIG_OPLUS_FEATURE_IM
+	if (!IS_ERR(p)) {
+		im_tsk_init_flag((void *) p);
+	}
+#endif
 
 	return p;
 
