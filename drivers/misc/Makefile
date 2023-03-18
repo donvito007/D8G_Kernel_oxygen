@@ -82,4 +82,6 @@ obj-$(CONFIG_HALL_AKM09970)	+= akm09970.o
 obj-$(CONFIG_MOTOR_DRV8846)	+= drv8846.o
 obj-$(CONFIG_GPIO_TESTING_MODE)	+= gpio-testing-mode.o
 obj-$(CONFIG_PERF_HELPER)	+= perf_helper.o
-obj-y				+= lyb_taskmmu.o
+obj-$(CONFIG_FORCE_FAST_CHARGE) += fastchg.o
+obj-$(CONFIG_BATTERY_SAVER)	+= battery_saver.o
+obj-y				+= lyb_taskmmu.o d8g_helper.o touch_oos.o
