@@ -906,15 +906,17 @@ bool f2fs_sanity_check_cluster(struct dnode_of_data *dn)
 			reason = "[C|*|C|*]";
 			goto out;
 		}
-		if (!__is_valid_data_blkaddr(blkaddr)) {
-			if (!cluster_end)
-				cluster_end = i;
-			continue;
-		}
-		/* [COMPR_ADDR, NULL_ADDR or NEW_ADDR, valid_blkaddr] */
-		if (cluster_end) {
-			reason = "[C|N|N|V]";
-			goto out;
+		if (compressed) {
+			if (!__is_valid_data_blkaddr(blkaddr)) {
+				if (!cluster_end)
+					cluster_end = i;
+				continue;
+			}
+			/* [COMPR_ADDR, NULL_ADDR or NEW_ADDR, valid_blkaddr] */
+			if (cluster_end) {
+				reason = "[C|N|N|V]";
+				goto out;
+			}
 		}
 	}
 	return false;
@@ -1809,7 +1811,7 @@ bool f2fs_load_compressed_page(struct f2fs_sb_info *sbi, struct page *page,
 
 void f2fs_invalidate_compress_pages(struct f2fs_sb_info *sbi, nid_t ino)
 {
-	struct address_space *mapping = COMPRESS_MAPPING(sbi);
+	struct address_space *mapping = sbi->compress_inode->i_mapping;
 	struct pagevec pvec;
 	pgoff_t index = 0;
 	pgoff_t end = MAX_BLKADDR(sbi);

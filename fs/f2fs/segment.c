@@ -503,7 +503,7 @@ void f2fs_balance_fs(struct f2fs_sb_info *sbi, bool need)
 {
 	if (time_to_inject(sbi, FAULT_CHECKPOINT)) {
 		f2fs_show_injection_info(sbi, FAULT_CHECKPOINT);
-		f2fs_stop_checkpoint(sbi, false, STOP_CP_REASON_FAULT_INJECT);
+		f2fs_stop_checkpoint(sbi, false);
 	}
 
 	/* balance_fs_bg is able to be pending */
@@ -596,7 +596,7 @@ do_sync:
 		mutex_lock(&sbi->flush_lock);
 
 		blk_start_plug(&plug);
-		f2fs_sync_dirty_inodes(sbi, FILE_INODE, false);
+		f2fs_sync_dirty_inodes(sbi, FILE_INODE);
 		blk_finish_plug(&plug);
 
 		mutex_unlock(&sbi->flush_lock);
@@ -815,8 +815,7 @@ int f2fs_flush_device_cache(struct f2fs_sb_info *sbi)
 		} while (ret && --count);
 
 		if (ret) {
-			f2fs_stop_checkpoint(sbi, false,
-					STOP_CP_REASON_FLUSH_FAIL);
+			f2fs_stop_checkpoint(sbi, false);
 			break;
 		}
 
