@@ -100,6 +100,7 @@
 #endif
 #include <linux/cpu_input_boost.h>
 #include <linux/devfreq_boost.h>
+#include <misc/d8g_helper.h>
 
 #include <linux/oom_score_notifier.h>
 
@@ -2346,6 +2347,8 @@ struct task_struct *fork_idle(int cpu)
 	return task;
 }
 
+extern bool limit_user __read_mostly;
+
 /*
  *  Ok, this is the main fork-routine.
  *
@@ -2365,11 +2368,17 @@ long _do_fork(unsigned long clone_flags,
 	int trace = 0;
 	long nr;
 
-	/* Boost DDR bus to the max for 50 ms when userspace launches an app */
-	if (task_is_zygote(current)) {
-		cpu_input_boost_kick_max(50);
-		devfreq_boost_kick_max(DEVFREQ_MSM_LLCCBW_DDR, 50);
-		devfreq_boost_kick_max(DEVFREQ_MSM_CPU_LLCCBW, 50);
+	/* Boost CPU to the max for 150 ms when userspace launches an app */
+	if (!limited && oplus_panel_status == 2) {
+		if (task_is_zygote(current)) {
+			if (oprofile != 4) { 
+#ifdef CONFIG_CPU_INPUT_BOOST
+				cpu_input_boost_kick_max(150);
+#endif
+				devfreq_boost_kick_max(DEVFREQ_MSM_LLCCBW_DDR, 150);
+				devfreq_boost_kick_max(DEVFREQ_MSM_CPU_LLCCBW, 150);
+			}
+		}
 	}
 
 	/*
