@@ -910,21 +910,13 @@ static unsigned long handle_to_obj(unsigned long handle)
 	return *(unsigned long *)handle;
 }
 
-static bool obj_allocated(struct page *page, void *obj, unsigned long *phandle)
+static unsigned long obj_to_head(struct page *page, void *obj)
 {
-	unsigned long handle;
-
 	if (unlikely(PageHugeObject(page))) {
 		VM_BUG_ON_PAGE(!is_first_page(page), page);
-		handle = page->index;
+		return page->index;
 	} else
-		handle = *(unsigned long *)obj;
-
-	if (!(handle & OBJ_ALLOCATED_TAG))
-		return false;
-
-	*phandle = handle & ~OBJ_ALLOCATED_TAG;
-	return true;
+		return *(unsigned long *)obj;
 }
 
 static inline int testpin_tag(unsigned long handle)
@@ -1691,6 +1683,7 @@ static void zs_object_copy(struct size_class *class, unsigned long dst,
 static unsigned long find_alloced_obj(struct size_class *class,
 					struct page *page, int *obj_idx)
 {
+	unsigned long head;
 	int offset = 0;
 	int index = *obj_idx;
 	unsigned long handle = 0;
@@ -1700,7 +1693,9 @@ static unsigned long find_alloced_obj(struct size_class *class,
 	offset += class->size * index;
 
 	while (offset < PAGE_SIZE) {
-		if (obj_allocated(page, addr + offset, &handle)) {
+		head = obj_to_head(page, addr + offset);
+		if (head & OBJ_ALLOCATED_TAG) {
+			handle = head & ~OBJ_ALLOCATED_TAG;
 			if (trypin_tag(handle))
 				break;
 			handle = 0;
@@ -2044,7 +2039,7 @@ static int zs_page_migrate(struct address_space *mapping, struct page *newpage,
 	struct page *dummy;
 	void *s_addr, *d_addr, *addr;
 	int offset, pos;
-	unsigned long handle;
+	unsigned long handle, head;
 	unsigned long old_obj, new_obj;
 	unsigned int obj_idx;
 	int ret = -EAGAIN;
@@ -2080,7 +2075,9 @@ static int zs_page_migrate(struct address_space *mapping, struct page *newpage,
 	pos = offset;
 	s_addr = kmap_atomic(page);
 	while (pos < PAGE_SIZE) {
-		if (obj_allocated(page, s_addr + pos, &handle)) {
+		head = obj_to_head(page, s_addr + pos);
+		if (head & OBJ_ALLOCATED_TAG) {
+			handle = head & ~OBJ_ALLOCATED_TAG;
 			if (!trypin_tag(handle))
 				goto unpin_objects;
 		}
@@ -2096,7 +2093,8 @@ static int zs_page_migrate(struct address_space *mapping, struct page *newpage,
 
 	for (addr = s_addr + offset; addr < s_addr + pos;
 					addr += class->size) {
-		if (obj_allocated(page, addr, &handle)) {
+		head = obj_to_head(page, addr);
+		if (head & OBJ_ALLOCATED_TAG) {
 			handle = head & ~OBJ_ALLOCATED_TAG;
 			if (!testpin_tag(handle))
 				BUG();
@@ -2143,7 +2141,8 @@ static int zs_page_migrate(struct address_space *mapping, struct page *newpage,
 unpin_objects:
 	for (addr = s_addr + offset; addr < s_addr + pos;
 						addr += class->size) {
-		if (obj_allocated(page, addr, &handle)) {
+		head = obj_to_head(page, addr);
+		if (head & OBJ_ALLOCATED_TAG) {
 			handle = head & ~OBJ_ALLOCATED_TAG;
 			if (!testpin_tag(handle))
 				BUG();
