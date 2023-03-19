@@ -38,8 +38,6 @@ static int enabled_devices;
 static int off __read_mostly;
 static int initialized __read_mostly;
 
-<<<<<<< HEAD
-=======
 #ifdef CONFIG_SMP
 static atomic_t idled = ATOMIC_INIT(0);
 
@@ -58,7 +56,6 @@ void cpuidle_clear_idle_cpu(unsigned int cpu)
 }
 #endif
 
->>>>>>> d4738848f161 (cpuidle: Mark CPUs idle as late as possible to avoid unneeded IPIs)
 int cpuidle_disabled(void)
 {
 	return off;
