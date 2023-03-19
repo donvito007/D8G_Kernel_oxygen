@@ -11,6 +11,11 @@
 #include <linux/kthread.h>
 #include <linux/slab.h>
 #include <uapi/linux/sched/types.h>
+#include <misc/d8g_helper.h>
+
+#ifndef CONFIG_CPU_INPUT_BOOST
+	unsigned long last_input_time;
+#endif
 
 enum {
 	SCREEN_OFF,
@@ -49,31 +54,21 @@ static void devfreq_max_unboost(struct work_struct *work);
 }
 
 static struct df_boost_drv df_boost_drv_g __read_mostly = {
-	BOOST_DEV_INIT(df_boost_drv_g, DEVFREQ_MSM_CPUBW,
-		       CONFIG_DEVFREQ_MSM_CPUBW_BOOST_FREQ)
+	BOOST_DEV_INIT(df_boost_drv_g, DEVFREQ_MSM_LLCCBW_DDR,
+		       CONFIG_DEVFREQ_MSM_LLCCBW_DDR_BOOST_FREQ),
 };
-
-extern int kp_active_mode(void);
 
 static void __devfreq_boost_kick(struct boost_dev *b)
 {
-	unsigned int period = CONFIG_DEVFREQ_INPUT_BOOST_DURATION_MS;
-
-	if (!READ_ONCE(b->df) || test_bit(SCREEN_OFF, &b->state) || kp_active_mode() == 1)
+	if (!READ_ONCE(b->df) || test_bit(SCREEN_OFF, &b->state))
 		return;
 
-	switch (kp_active_mode()) {
-	case 2:
-		period = CONFIG_DEVFREQ_INPUT_BOOST_DURATION_MS * 1.5;
-		break;
-	case 3:
-		period = CONFIG_DEVFREQ_INPUT_BOOST_DURATION_MS * 2;
-		break;
-	}
-	
+	if (limited || oprofile == 4 || oplus_panel_status != 2)
+		return;
+
 	set_bit(INPUT_BOOST, &b->state);
 	if (!mod_delayed_work(system_unbound_wq, &b->input_unboost,
-		msecs_to_jiffies(period)))
+		msecs_to_jiffies(CONFIG_DEVFREQ_INPUT_BOOST_DURATION_MS)))
 		wake_up(&b->boost_waitq);
 }
 
@@ -90,7 +85,10 @@ static void __devfreq_boost_kick_max(struct boost_dev *b,
 	unsigned long boost_jiffies = msecs_to_jiffies(duration_ms);
 	unsigned long curr_expires, new_expires;
 
-	if (!READ_ONCE(b->df) || test_bit(SCREEN_OFF, &b->state) || kp_active_mode() == 1)
+	if (!READ_ONCE(b->df) || test_bit(SCREEN_OFF, &b->state))
+		return;
+
+	if (limited || oprofile == 4 || oplus_panel_status != 2)
 		return;
 
 	do {
@@ -228,6 +226,10 @@ static void devfreq_boost_input_event(struct input_handle *handle,
 
 	for (i = 0; i < DEVFREQ_MAX; i++)
 		__devfreq_boost_kick(d->devices + i);
+
+#ifndef CONFIG_CPU_INPUT_BOOST
+	last_input_time = jiffies;
+#endif
 }
 
 static int devfreq_boost_input_connect(struct input_handler *handler,
@@ -312,8 +314,13 @@ static int __init devfreq_boost_init(void)
 	for (i = 0; i < DEVFREQ_MAX; i++) {
 		struct boost_dev *b = d->devices + i;
 
-		thread[i] = kthread_run_perf_critical(cpu_prime_mask, devfreq_boost_thread,
-						      b, "devfreq_boostd/%d", i);
+		if (oprofile != 4 || oprofile != 0)
+			thread[i] = kthread_run_perf_critical(cpu_prime_mask, devfreq_boost_thread,
+								b, "devfreq_boostd/%d", i);
+		else
+			thread[i] = kthread_run_perf_critical(cpu_perf_mask,
+								devfreq_boost_thread, b,
+								"devfreq_boostd/%d", i);
 		if (IS_ERR(thread[i])) {
 			ret = PTR_ERR(thread[i]);
 			pr_err("Failed to create kthread, err: %d\n", ret);
