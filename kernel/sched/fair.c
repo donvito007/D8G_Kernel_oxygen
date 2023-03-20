@@ -83,8 +83,8 @@ unsigned int super_big_cpu = 7;
  *
  * (default: 6ms * (1 + ilog(ncpus)), units: nanoseconds)
  */
-unsigned int sysctl_sched_latency			= 5000000ULL;
-unsigned int normalized_sysctl_sched_latency		= 5000000ULL;
+unsigned int sysctl_sched_latency			= 6000000ULL;
+unsigned int normalized_sysctl_sched_latency		= 6000000ULL;
 
 /*
  * Enable/disable honoring sync flag in energy-aware wakeups.
@@ -6268,10 +6268,7 @@ stune_util(int cpu, unsigned long other_util,
 
 	trace_sched_boost_cpu(cpu, util, margin);
 
-	if (sched_feat(SCHEDTUNE_BOOST_UTIL))
-		return util + margin;
-	else
-		return util;
+	return util + margin;
 }
 
 #else /* CONFIG_SCHED_TUNE */
@@ -8903,27 +8900,6 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
 		schedstat_inc(p->se.statistics.nr_failed_migrations_running);
 		return 0;
 	}
-
-#ifdef CONFIG_SCHED_WALT
-	if ((env->idle == CPU_NEWLY_IDLE) &&
-		is_min_capacity_cpu(env->dst_cpu) &&
-		!is_min_capacity_cpu(env->src_cpu) &&
-		get_rtg_status(p)) {
-		bool pull_to_silver_allowed = false;
-		unsigned int cpu;
-
-		for_each_cpu(cpu, env->cpus) {
-			if (!is_min_capacity_cpu(cpu) &&
-				cpu_overutilized(cpu)) {
-				pull_to_silver_allowed = true;
-				break;
-			}
-		}
-
-		if (!pull_to_silver_allowed)
-			return 0;
-	}
-#endif
 
 	/*
 	 * Aggressive migration if:

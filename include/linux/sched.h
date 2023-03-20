@@ -1491,7 +1491,6 @@ struct task_struct {
 	/* Used by LSM modules for access restriction: */
 	void				*security;
 #endif
-
 #ifdef CONFIG_KPERFEVENTS
 	/* lock to protect kperfevents */
 	rwlock_t kperfevents_lock;
@@ -1523,9 +1522,6 @@ struct task_struct {
 
 	ANDROID_KABI_RESERVE(7);
 	ANDROID_KABI_RESERVE(8);
-#ifdef CONFIG_ANDROID_SIMPLE_LMK
-	struct task_struct		*simple_lmk_next;
-#endif
 
 	/*
 	 * New fields for task_struct should be added above here, so that
@@ -1850,11 +1846,6 @@ static inline bool cpupri_check_rt(void)
 }
 #endif
 
-void sched_migrate_to_cpumask_start(struct cpumask *old_mask,
-				    const struct cpumask *dest);
-void sched_migrate_to_cpumask_end(const struct cpumask *old_mask,
-				  const struct cpumask *dest);
-
 #ifndef cpu_relax_yield
 #define cpu_relax_yield() cpu_relax()
 #endif
@@ -1954,18 +1945,11 @@ extern void kick_process(struct task_struct *tsk);
 static inline void kick_process(struct task_struct *tsk) { }
 #endif
 
-#ifdef CONFIG_OPLUS_ION_BOOSTPOOL
-extern pid_t alloc_svc_tgid;
-#endif /* CONFIG_OPLUS_ION_BOOSTPOOL */
-
 extern void __set_task_comm(struct task_struct *tsk, const char *from, bool exec);
+
 static inline void set_task_comm(struct task_struct *tsk, const char *from)
 {
 	__set_task_comm(tsk, from, false);
-#ifdef CONFIG_OPLUS_ION_BOOSTPOOL
-	if (!strncmp(from, "allocator-servi", TASK_COMM_LEN))
-		alloc_svc_tgid = tsk->tgid;
-#endif /* CONFIG_OPLUS_ION_BOOSTPOOL */
 }
 
 extern char *__get_task_comm(char *to, size_t len, struct task_struct *tsk);
@@ -2133,46 +2117,6 @@ extern long sched_getaffinity(pid_t pid, struct cpumask *mask);
 
 #ifndef TASK_SIZE_OF
 #define TASK_SIZE_OF(tsk)	TASK_SIZE
-#endif
-
-#ifdef CONFIG_DYNAMIC_STUNE_BOOST
-int do_stune_boost(char *st_name, int boost, int *slot);
-int do_stune_sched_boost(char *st_name, int *slot);
-int reset_stune_boost(char *st_name, int slot);
-int set_stune_boost(char *st_name, int boost, int *boost_default);
-int do_prefer_idle(char *st_name, u64 prefer_idle);
-#else /* !CONFIG_DYNAMIC_STUNE_BOOST */
-static inline int do_stune_boost(char *st_name, int boost, int *slot)
-{
-	return 0;
-}
-
-static inline int do_stune_sched_boost(char *st_name, int *slot)
-{
-	return 0;
-}
-
-static inline int reset_stune_boost(char *st_name, int slot)
-{
-	return 0;
-}
-static inline int do_prefer_idle(char *st_name, u64 prefer_idle)
-{
-	return 0;
-}
-static inline int set_stune_boost(char *st_name, int boost, int *boost_default)
-{
-	return 0;
-}
-#endif /* CONFIG_DYNAMIC_STUNE_BOOST */
-
-#ifdef CONFIG_CPU_FREQ_GOV_SCHEDUTIL
-unsigned long sched_cpu_util(int cpu);
-#else
-static inline unsigned long sched_cpu_util(int cpu)
-{
-	return 0;
-}
 #endif
 
 #ifdef CONFIG_RSEQ

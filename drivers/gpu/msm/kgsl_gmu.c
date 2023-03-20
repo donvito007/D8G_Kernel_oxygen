@@ -13,7 +13,6 @@
 #include <linux/of_platform.h>
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
-#include <misc/d8g_helper.h>
 #include <soc/qcom/cmd-db.h>
 
 #include "adreno.h"
@@ -1418,20 +1417,15 @@ error:
 static int gmu_enable_clks(struct kgsl_device *device)
 {
 	struct gmu_device *gmu = KGSL_GMU_DEVICE(device);
-	int ret, j = 0, gmu_set;
+	int ret, j = 0;
 
 	if (IS_ERR_OR_NULL(gmu->clks[0]))
 		return -EINVAL;
 
-	if ((oprofile != 4 || oprofile != 0) && oplus_panel_status == 2)
-		gmu_set = GMU_FREQUENCY;
-	else
-		gmu_set = GMU_FREQUENCY_LOW;
-
-	ret = clk_set_rate(gmu->clks[0], gmu_set);
+	ret = clk_set_rate(gmu->clks[0], GMU_FREQUENCY);
 	if (ret) {
 		dev_err(&gmu->pdev->dev, "fail to set default GMU clk freq %d\n",
-				gmu_set);
+				GMU_FREQUENCY);
 		return ret;
 	}
 

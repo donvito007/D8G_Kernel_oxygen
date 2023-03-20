@@ -69,16 +69,12 @@
 #include <linux/nmi.h>
 #include <linux/khugepaged.h>
 #include <linux/psi.h>
-#include <linux/cpu_input_boost.h>
-#include <linux/devfreq_boost.h>
-#include <misc/d8g_helper.h>
 #include <linux/delayacct.h>
 
 #include <asm/sections.h>
 #include <asm/tlbflush.h>
 #include <asm/div64.h>
 #include "internal.h"
-
 
 #ifdef CONFIG_KPERFEVENTS
 #include <linux/kperfevents.h>
@@ -87,7 +83,6 @@
 #define CREATE_TRACE_POINTS
 DEFINE_TRACE(kperfevents_mm_slowpath);
 #endif
-atomic_long_t kswapd_waiters = ATOMIC_LONG_INIT(0);
 
 /* prevent >1 _updater_ of zone percpu pageset ->high and ->batch fields */
 static DEFINE_MUTEX(pcp_batch_high_lock);
@@ -97,9 +92,6 @@ static DEFINE_MUTEX(pcp_batch_high_lock);
 DEFINE_PER_CPU(int, numa_node);
 EXPORT_PER_CPU_SYMBOL(numa_node);
 #endif
-
-static bool limit_boost = false;
-module_param(limit_boost, bool, 0444);
 
 DEFINE_STATIC_KEY_TRUE(vm_numa_stat_key);
 
@@ -4140,12 +4132,6 @@ check_priority:
 		(*compact_priority)--;
 		*compaction_retries = 0;
 		ret = true;
-	} else if (order <= PAGE_ALLOC_COSTLY_ORDER) {
-		/*
-		 * If it's non-alloc-costly order and has enough reclaimable
-		 * memory, retries further to prevent premature OOM kill.
-		 */
-		ret = compaction_zonelist_suitable(ac, order, alloc_flags);
 	}
 out:
 	trace_compact_retry(order, priority, compact_result, retries, max_retries, ret);
@@ -4579,8 +4565,6 @@ __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
 	unsigned int cpuset_mems_cookie;
 	unsigned int zonelist_iter_cookie;
 	int reserve_flags;
-	bool woke_kswapd = false;
-	bool used_vmpressure = false;
 
 	/*
 	 * We also sanity check to catch abuse of atomic reserves being used by
@@ -4615,16 +4599,8 @@ restart:
 	if (!ac->preferred_zoneref->zone)
 		goto nopage;
 
-
-	if (gfp_mask & __GFP_KSWAPD_RECLAIM) {
-		if (!woke_kswapd) {
-			atomic_long_inc(&kswapd_waiters);
-			woke_kswapd = true;
-		}
-		if (!used_vmpressure)
-			used_vmpressure = vmpressure_inc_users(order);
+	if (alloc_flags & ALLOC_KSWAPD)
 		wake_all_kswapds(order, gfp_mask, ac);
-	}
 
 	/*
 	 * The adjusted alloc_flags might result in immediate success, so try
@@ -4717,8 +4693,6 @@ retry:
 		goto nopage;
 
 	/* Try direct reclaim and then allocating */
-	if (!used_vmpressure)
-		used_vmpressure = vmpressure_inc_users(order);
 	page = __alloc_pages_direct_reclaim(gfp_mask, order, alloc_flags, ac,
 							&did_some_progress);
 	if (page)
@@ -4740,17 +4714,6 @@ retry:
 	 */
 	if (costly_order && !(gfp_mask & __GFP_RETRY_MAYFAIL))
 		goto nopage;
-
-	/* Boost when memory is low so allocation latency doesn't get too bad */
-	if (!limited && oplus_panel_status == 2) {
-		if (oprofile != 4) {
-#ifdef CONFIG_CPU_INPUT_BOOST
-			cpu_input_boost_kick_max(100);
-#endif
-			devfreq_boost_kick_max(DEVFREQ_MSM_LLCCBW_DDR, 100);
-			devfreq_boost_kick_max(DEVFREQ_MSM_CPU_LLCCBW, 100);
-		}
-	}
 
 	if (should_reclaim_retry(gfp_mask, order, ac, alloc_flags,
 				 did_some_progress > 0, &no_progress_loops))
@@ -4788,10 +4751,8 @@ retry:
 	/* Avoid allocations with no watermarks from looping endlessly */
 	if (tsk_is_oom_victim(current) &&
 	    (alloc_flags == ALLOC_OOM ||
-	     (gfp_mask & __GFP_NOMEMALLOC))) {
-		gfp_mask |= __GFP_NOWARN;
+	     (gfp_mask & __GFP_NOMEMALLOC)))
 		goto nopage;
-	}
 
 	/* Retry as long as the OOM killer is making progress */
 	if (did_some_progress) {
@@ -4849,14 +4810,9 @@ nopage:
 		goto retry;
 	}
 fail:
+	warn_alloc(gfp_mask, ac->nodemask,
+			"page allocation failure: order:%u", order);
 got_pg:
-	if (woke_kswapd)
-		atomic_long_dec(&kswapd_waiters);
-	if (used_vmpressure)
-		vmpressure_dec_users();
-	if (!page)
-		warn_alloc(gfp_mask, ac->nodemask,
-				"page allocation failure: order:%u", order);
 	return page;
 }
 

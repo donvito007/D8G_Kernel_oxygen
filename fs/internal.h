@@ -188,7 +188,3 @@ loff_t iomap_apply(struct inode *inode, loff_t pos, loff_t length,
 
 /* direct-io.c: */
 int sb_init_dio_done_wq(struct super_block *sb);
-
-#ifdef CONFIG_BLOCK_UNWANTED_FILES
-bool check_file(const char *name);
-#endif

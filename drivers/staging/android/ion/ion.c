@@ -110,8 +110,6 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 	if (!buffer)
 		return ERR_PTR(-ENOMEM);
 
-	INIT_LIST_HEAD(&buffer->iommu_data.map_list);
-	mutex_init(&buffer->iommu_data.lock);
 	buffer->heap = heap;
 	buffer->flags = flags;
 	buffer->dev = dev;
@@ -201,7 +199,7 @@ static void _ion_buffer_destroy(struct ion_buffer *buffer)
 	struct ion_heap *heap = buffer->heap;
 	struct ion_device *dev = buffer->dev;
 
-	msm_dma_buf_freed(&buffer->iommu_data);
+	msm_dma_buf_freed(buffer);
 
 	mutex_lock(&dev->buffer_lock);
 	rb_erase(&buffer->node, &dev->buffers);
@@ -297,8 +295,7 @@ static int ion_dma_buf_attach(struct dma_buf *dmabuf,
 {
 	struct ion_dma_buf_attachment *a;
 	struct sg_table *table;
-	struct ion_buffer *buffer = container_of(dmabuf->priv, typeof(*buffer),
-						 iommu_data);
+	struct ion_buffer *buffer = dmabuf->priv;
 
 	a = kzalloc(sizeof(*a), GFP_KERNEL);
 	if (!a)
@@ -328,8 +325,7 @@ static void ion_dma_buf_detatch(struct dma_buf *dmabuf,
 				struct dma_buf_attachment *attachment)
 {
 	struct ion_dma_buf_attachment *a = attachment->priv;
-	struct ion_buffer *buffer = container_of(dmabuf->priv, typeof(*buffer),
-						 iommu_data);
+	struct ion_buffer *buffer = dmabuf->priv;
 
 	mutex_lock(&buffer->lock);
 	list_del(&a->list);
@@ -345,8 +341,7 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 	struct ion_dma_buf_attachment *a = attachment->priv;
 	struct sg_table *table;
 	int count, map_attrs;
-	struct ion_buffer *buffer = container_of(attachment->dmabuf->priv,
-						 typeof(*buffer), iommu_data);
+	struct ion_buffer *buffer = attachment->dmabuf->priv;
 
 	table = a->table;
 
@@ -396,8 +391,7 @@ static void ion_unmap_dma_buf(struct dma_buf_attachment *attachment,
 			      enum dma_data_direction direction)
 {
 	int map_attrs;
-	struct ion_buffer *buffer = container_of(attachment->dmabuf->priv,
-						 typeof(*buffer), iommu_data);
+	struct ion_buffer *buffer = attachment->dmabuf->priv;
 	struct ion_dma_buf_attachment *a = attachment->priv;
 
 	map_attrs = attachment->dma_map_attrs;
@@ -486,8 +480,7 @@ static const struct vm_operations_struct ion_vma_ops = {
 
 static int ion_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 {
-	struct ion_buffer *buffer = container_of(dmabuf->priv, typeof(*buffer),
-						 iommu_data);
+	struct ion_buffer *buffer = dmabuf->priv;
 	int ret = 0;
 
 	if (!buffer->heap->ops->map_user) {
@@ -517,8 +510,7 @@ static int ion_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 
 static void ion_dma_buf_release(struct dma_buf *dmabuf)
 {
-	struct ion_buffer *buffer = container_of(dmabuf->priv, typeof(*buffer),
-						 iommu_data);
+	struct ion_buffer *buffer = dmabuf->priv;
 
 	_ion_buffer_destroy(buffer);
 	kfree(dmabuf->exp_name);
@@ -526,8 +518,7 @@ static void ion_dma_buf_release(struct dma_buf *dmabuf)
 
 static void *ion_dma_buf_vmap(struct dma_buf *dmabuf)
 {
-	struct ion_buffer *buffer = container_of(dmabuf->priv, typeof(*buffer),
-						 iommu_data);
+	struct ion_buffer *buffer = dmabuf->priv;
 	void *vaddr = ERR_PTR(-EINVAL);
 
 	if (buffer->heap->ops->map_kernel) {
@@ -544,8 +535,7 @@ static void *ion_dma_buf_vmap(struct dma_buf *dmabuf)
 
 static void ion_dma_buf_vunmap(struct dma_buf *dmabuf, void *vaddr)
 {
-	struct ion_buffer *buffer = container_of(dmabuf->priv, typeof(*buffer),
-						 iommu_data);
+	struct ion_buffer *buffer = dmabuf->priv;
 
 	if (buffer->heap->ops->map_kernel) {
 		mutex_lock(&buffer->lock);
@@ -659,8 +649,7 @@ static int __ion_dma_buf_begin_cpu_access(struct dma_buf *dmabuf,
 					  enum dma_data_direction direction,
 					  bool sync_only_mapped)
 {
-	struct ion_buffer *buffer = container_of(dmabuf->priv, typeof(*buffer),
-						 iommu_data);
+	struct ion_buffer *buffer = dmabuf->priv;
 	struct ion_dma_buf_attachment *a;
 	int ret = 0;
 
@@ -756,8 +745,7 @@ static int __ion_dma_buf_end_cpu_access(struct dma_buf *dmabuf,
 					enum dma_data_direction direction,
 					bool sync_only_mapped)
 {
-	struct ion_buffer *buffer = container_of(dmabuf->priv, typeof(*buffer),
-						 iommu_data);
+	struct ion_buffer *buffer = dmabuf->priv;
 	struct ion_dma_buf_attachment *a;
 	int ret = 0;
 
@@ -874,8 +862,7 @@ static int ion_dma_buf_begin_cpu_access_partial(struct dma_buf *dmabuf,
 						unsigned int offset,
 						unsigned int len)
 {
-	struct ion_buffer *buffer = container_of(dmabuf->priv, typeof(*buffer),
-						 iommu_data);
+	struct ion_buffer *buffer = dmabuf->priv;
 	struct ion_dma_buf_attachment *a;
 	int ret = 0;
 
@@ -956,8 +943,7 @@ static int ion_dma_buf_end_cpu_access_partial(struct dma_buf *dmabuf,
 					      unsigned int offset,
 					      unsigned int len)
 {
-	struct ion_buffer *buffer = container_of(dmabuf->priv, typeof(*buffer),
-						 iommu_data);
+	struct ion_buffer *buffer = dmabuf->priv;
 	struct ion_dma_buf_attachment *a;
 	int ret = 0;
 
@@ -1037,8 +1023,7 @@ out:
 static int ion_dma_buf_get_flags(struct dma_buf *dmabuf,
 				 unsigned long *flags)
 {
-	struct ion_buffer *buffer = container_of(dmabuf->priv, typeof(*buffer),
-						 iommu_data);
+	struct ion_buffer *buffer = dmabuf->priv;
 	*flags = buffer->flags;
 
 	return 0;
@@ -1064,26 +1049,6 @@ static const struct dma_buf_ops dma_buf_ops = {
 	.get_flags = ion_dma_buf_get_flags,
 };
 
-#ifdef CONFIG_OPLUS_ION_BOOSTPOOL
-pid_t alloc_svc_tgid;
-
-/* TODO use task comm may not safe. */
-inline int is_allocator_svc(struct task_struct *tsk)
-{
-	return (tsk->tgid == alloc_svc_tgid);
-}
-
-static inline unsigned int boost_pool_extra_flags(unsigned int heap_id_mask)
-{
-	unsigned int extra_flags = 0;
-
-	if ((heap_id_mask & (1 << ION_CAMERA_HEAP_ID)) || is_allocator_svc(current))
-		extra_flags |= ION_FLAG_CAMERA_BUFFER;
-
-	return extra_flags;
-}
-#endif /* CONFIG_OPLUS_ION_BOOSTPOOL */
-
 struct dma_buf *ion_alloc_dmabuf(size_t len, unsigned int heap_id_mask,
 				 unsigned int flags, int pid_info)
 {
@@ -1098,9 +1063,6 @@ struct dma_buf *ion_alloc_dmabuf(size_t len, unsigned int heap_id_mask,
 	struct task_struct *p = current->group_leader;
 	unsigned int system_heap_id = ION_HEAP(ION_SYSTEM_HEAP_ID);
 	unsigned int system_heap_id1 = ION_HEAP(ION_SYSTEM_HEAP_ID) | ION_HEAP(ION_CAMERA_HEAP_ID);
-#ifdef CONFIG_OPLUS_ION_BOOSTPOOL
-	unsigned int extra_flags = boost_pool_extra_flags(heap_id_mask);
-#endif /* CONFIG_OPLUS_ION_BOOSTPOOL */
 
 	pr_debug("%s: len %zu heap_id_mask %u flags %x\n", __func__,
 		 len, heap_id_mask, flags);
@@ -1144,31 +1106,16 @@ struct dma_buf *ion_alloc_dmabuf(size_t len, unsigned int heap_id_mask,
 		}
 	}
 
-#ifdef CONFIG_OPLUS_ION_BOOSTPOOL
-	trace_ion_alloc_start(len, heap_id_mask, flags,
-			      extra_flags ? "true" : "false");
-#endif /* CONFIG_OPLUS_ION_BOOSTPOOL */
-
 	down_read(&dev->lock);
 	plist_for_each_entry(heap, &dev->heaps, node) {
 		/* if the caller didn't specify this heap id */
 		if (!((1 << heap->id) & heap_id_mask))
 			continue;
-#ifdef CONFIG_OPLUS_ION_BOOSTPOOL
-		if (heap->id == ION_SYSTEM_HEAP_ID) {
-			buffer = ion_buffer_create(heap, dev, len,
-						   flags | extra_flags);
-		} else
-#endif
 		buffer = ion_buffer_create(heap, dev, len, flags);
 		if (!IS_ERR(buffer) || PTR_ERR(buffer) == -EINTR)
 			break;
 	}
 	up_read(&dev->lock);
-
-#ifdef CONFIG_OPLUS_ION_BOOSTPOOL
-	trace_ion_alloc_end(len, heap_id_mask, flags, "");
-#endif /* CONFIG_OPLUS_ION_BOOSTPOOL */
 
 	if (!buffer)
 		return ERR_PTR(-ENODEV);
@@ -1179,7 +1126,7 @@ struct dma_buf *ion_alloc_dmabuf(size_t len, unsigned int heap_id_mask,
 	exp_info.ops = &dma_buf_ops;
 	exp_info.size = buffer->size;
 	exp_info.flags = O_RDWR;
-	exp_info.priv = &buffer->iommu_data;
+	exp_info.priv = buffer;
 	if (pid_info <= 0) {
 		exp_info.exp_name = kasprintf(GFP_KERNEL, "%s-%s-%d-%s", KBUILD_MODNAME,
 				      heap->name, current->tgid, task_comm);

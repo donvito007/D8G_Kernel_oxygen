@@ -1117,7 +1117,8 @@ static int kgsl_close_device(struct kgsl_device *device)
 	int result = 0;
 
 	mutex_lock(&device->mutex);
-	if (device->open_count == 1) {
+	device->open_count--;
+	if (device->open_count == 0) {
 
 		/*
 		 * Wait up to 1 second for the active count to go low
@@ -1134,18 +1135,6 @@ static int kgsl_close_device(struct kgsl_device *device)
 
 		result = kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
 	}
-
-	/*
-	 * We must decrement the open_count after last_close() has finished.
-	 * This is because last_close() relinquishes device mutex while
-	 * waiting for active count to become 0. This opens up a window
-	 * where a new process can come in, see that open_count is 0, and
-	 * initiate a first_open(). This can potentially mess up the power
-	 * state machine. To avoid a first_open() from happening before
-	 * last_close() has finished, decrement the open_count after
-	 * last_close().
-	 */
-	device->open_count--;
 	mutex_unlock(&device->mutex);
 	return result;
 
@@ -5350,9 +5339,9 @@ int kgsl_device_platform_probe(struct kgsl_device *device)
 	dma_set_max_seg_size(device->dev, KGSL_DMA_BIT_MASK);
 
 	/* Initialize the memory pools */
-	kgsl_init_page_pools(device->pdev);
+	kgsl_init_page_pools(device);
 
-	status = kgsl_reclaim_init();
+	status = kgsl_reclaim_init(device);
 	if (status)
 		goto error_close_mmu;
 
@@ -5467,7 +5456,7 @@ static void kgsl_core_exit(void)
 static int __init kgsl_core_init(void)
 {
 	int result = 0;
-	struct sched_param param = { .sched_priority = 16 };
+	struct sched_param param = { .sched_priority = 2 };
 
 	/* alloc major and minor device numbers */
 	result = alloc_chrdev_region(&kgsl_driver.major, 0,

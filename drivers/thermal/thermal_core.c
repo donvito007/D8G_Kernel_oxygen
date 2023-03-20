@@ -485,7 +485,7 @@ static void update_temperature(struct thermal_zone_device *tz)
 	ret = thermal_zone_get_temp(tz, &temp);
 	if (ret) {
 		if (ret != -EAGAIN)
-			dev_dbg(&tz->device,
+			dev_warn(&tz->device,
 				 "failed to read out thermal zone (%d)\n",
 				 ret);
 		return;
@@ -1995,7 +1995,8 @@ static int __init thermal_init(void)
 
 	mutex_init(&poweroff_lock);
 	thermal_passive_wq = alloc_workqueue("thermal_passive_wq",
-						WQ_UNBOUND | WQ_FREEZABLE,
+						WQ_HIGHPRI | WQ_UNBOUND
+						| WQ_FREEZABLE,
 						THERMAL_MAX_ACTIVE);
 	if (!thermal_passive_wq) {
 		result = -ENOMEM;

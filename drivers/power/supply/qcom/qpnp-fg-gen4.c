@@ -2781,7 +2781,7 @@ done:
 	batt_psy_initialized(fg);
 	fg_notify_charger(fg);
 	power_supply_changed(fg->fg_psy);
-	mod_delayed_work(system_freezable_power_efficient_wq, &chip->ttf->ttf_work, msecs_to_jiffies(10000));
+	schedule_delayed_work(&chip->ttf->ttf_work, msecs_to_jiffies(10000));
 	fg_dbg(fg, FG_STATUS, "profile loaded successfully");
 out:
 	if (!chip->esr_fast_calib || is_debug_batt_id(fg)) {
@@ -2794,10 +2794,10 @@ out:
 		chip->batt_age_level = chip->last_batt_age_level;
 	fg->soc_reporting_ready = true;
 	vote(fg->awake_votable, ESR_FCC_VOTER, true, 0);
-	mod_delayed_work(system_freezable_power_efficient_wq, &chip->pl_enable_work, msecs_to_jiffies(5000));
+	schedule_delayed_work(&chip->pl_enable_work, msecs_to_jiffies(5000));
 	vote(fg->awake_votable, PROFILE_LOAD, false, 0);
 	if (!work_pending(&fg->status_change_work)) {
-		pm_wakeup_event(fg->dev, 0);
+		pm_stay_awake(fg->dev);
 		schedule_work(&fg->status_change_work);
 	}
 
@@ -3836,7 +3836,7 @@ static irqreturn_t fg_batt_missing_irq_handler(int irq, void *data)
 	}
 
 	clear_battery_profile(fg);
-	mod_delayed_work(system_freezable_power_efficient_wq, &fg->profile_load_work, 0);
+	schedule_delayed_work(&fg->profile_load_work, 0);
 
 	if (fg->fg_psy)
 		power_supply_changed(fg->fg_psy);
@@ -4151,7 +4151,7 @@ static enum alarmtimer_restart fg_esr_fast_cal_timer(struct alarm *alarm,
 		 * We cannot vote for awake votable here as that takes
 		 * a mutex lock and this is executed in an atomic context.
 		 */
-		pm_wakeup_event(fg->dev, 0);
+		pm_stay_awake(fg->dev);
 		chip->esr_fast_cal_timer_expired = true;
 		schedule_work(&chip->esr_calib_work);
 	}
@@ -4804,7 +4804,7 @@ static void sram_dump_work(struct work_struct *work)
 	fg_dbg(fg, FG_STATUS, "SRAM Dump done at %lld.%d\n",
 		quotient, remainder);
 resched:
-	mod_delayed_work(system_freezable_power_efficient_wq, &fg->sram_dump_work,
+	schedule_delayed_work(&fg->sram_dump_work,
 			msecs_to_jiffies(fg_sram_dump_period_ms));
 }
 
@@ -4843,7 +4843,7 @@ static ssize_t sram_dump_en_store(struct device *dev, struct device_attribute
 	}
 
 	if (fg_sram_dump)
-		mod_delayed_work(system_freezable_power_efficient_wq, &fg->sram_dump_work,
+		schedule_delayed_work(&fg->sram_dump_work,
 				msecs_to_jiffies(fg_sram_dump_period_ms));
 	else
 		cancel_delayed_work_sync(&fg->sram_dump_work);
@@ -5317,6 +5317,9 @@ static int fg_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_TIME_TO_FULL_AVG:
 		rc = ttf_get_time_to_full(chip->ttf, &pval->intval);
 		break;
+	case POWER_SUPPLY_PROP_TIME_TO_FULL_NOW:
+		rc = ttf_get_time_to_full(chip->ttf, &pval->intval);
+		break;
 	case POWER_SUPPLY_PROP_TIME_TO_EMPTY_AVG:
 		rc = ttf_get_time_to_empty(chip->ttf, &pval->intval);
 		break;
@@ -5462,7 +5465,7 @@ static int fg_psy_set_property(struct power_supply *psy,
 			return -EINVAL;
 		chip->last_batt_age_level = chip->batt_age_level;
 		chip->batt_age_level = pval->intval;
-		mod_delayed_work(system_freezable_power_efficient_wq, &fg->profile_load_work, 0);
+		schedule_delayed_work(&fg->profile_load_work, 0);
 		break;
 	case POWER_SUPPLY_PROP_CALIBRATE:
 		rc = fg_gen4_set_calibrate_level(chip, pval->intval);
@@ -5568,6 +5571,7 @@ static enum power_supply_property fg_psy_props[] = {
 	POWER_SUPPLY_PROP_DEBUG_BATTERY,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE,
 	POWER_SUPPLY_PROP_TIME_TO_FULL_AVG,
+	POWER_SUPPLY_PROP_TIME_TO_FULL_NOW,
 	POWER_SUPPLY_PROP_TIME_TO_EMPTY_AVG,
 	POWER_SUPPLY_PROP_CC_STEP,
 	POWER_SUPPLY_PROP_CC_STEP_SEL,
@@ -5616,7 +5620,7 @@ static int fg_notifier_cb(struct notifier_block *nb,
 		 * We cannot vote for awake votable here as that takes
 		 * a mutex lock and this is executed in an atomic context.
 		 */
-		pm_wakeup_event(fg->dev, 0);
+		pm_stay_awake(fg->dev);
 		schedule_work(&fg->status_change_work);
 	}
 
@@ -5629,7 +5633,7 @@ static int fg_awake_cb(struct votable *votable, void *data, int awake,
 	struct fg_dev *fg = data;
 
 	if (awake)
-		pm_wakeup_event(fg->dev, 0);
+		pm_stay_awake(fg->dev);
 	else
 		pm_relax(fg->dev);
 
@@ -7191,7 +7195,7 @@ static void empty_restart_fg_work(struct work_struct *work)
 			schedule_delayed_work(&fg->soc_monitor_work,
 				msecs_to_jiffies(RESTART_FG_MONITOR_SOC_WAIT_PER_MS));
 		} else {
-			mod_delayed_work(system_freezable_power_efficient_wq, 
+			schedule_delayed_work(
 					&fg->empty_restart_fg_work,
 					msecs_to_jiffies(RESTART_FG_WORK_MS));
 		}
@@ -7400,9 +7404,9 @@ static int fg_gen4_probe(struct platform_device *pdev)
 	INIT_WORK(&fg->status_change_work, status_change_work);
 	INIT_WORK(&chip->esr_calib_work, esr_calib_work);
 	INIT_WORK(&chip->soc_scale_work, soc_scale_work);
-	INIT_DEFERRABLE_WORK(&fg->profile_load_work, profile_load_work);
-	INIT_DEFERRABLE_WORK(&fg->sram_dump_work, sram_dump_work);
-	INIT_DEFERRABLE_WORK(&chip->pl_enable_work, pl_enable_work);
+	INIT_DELAYED_WORK(&fg->profile_load_work, profile_load_work);
+	INIT_DELAYED_WORK(&fg->sram_dump_work, sram_dump_work);
+	INIT_DELAYED_WORK(&chip->pl_enable_work, pl_enable_work);
 	INIT_WORK(&chip->pl_current_en_work, pl_current_en_work);
 	INIT_DELAYED_WORK(&fg->soc_monitor_work, soc_monitor_work);
 	INIT_DELAYED_WORK(&fg->empty_restart_fg_work, empty_restart_fg_work);
@@ -7595,13 +7599,15 @@ static int fg_gen4_probe(struct platform_device *pdev)
 
 	device_init_wakeup(fg->dev, true);
 	if (!fg->battery_missing)
-		mod_delayed_work(system_freezable_power_efficient_wq, &fg->profile_load_work, 0);
+		schedule_delayed_work(&fg->profile_load_work, 0);
 
 	fg_gen4_post_init(chip);
 	if (chip->dt.fg_increase_100soc_time) {
-        mod_delayed_work(system_freezable_power_efficient_wq, &fg->soc_monitor_work, msecs_to_jiffies(0));
+		schedule_delayed_work(&fg->soc_monitor_work,
+			msecs_to_jiffies(0));
 	} else {
-        mod_delayed_work(system_freezable_power_efficient_wq, &fg->soc_monitor_work, msecs_to_jiffies(5*MONITOR_SOC_WAIT_MS));
+		schedule_delayed_work(&fg->soc_monitor_work,
+			msecs_to_jiffies(5*MONITOR_SOC_WAIT_MS));
 	}
 
 	/*
@@ -7612,7 +7618,7 @@ static int fg_gen4_probe(struct platform_device *pdev)
 	 */
 	if ((volt_uv >= VBAT_RESTART_FG_EMPTY_UV)
 			&& (msoc == 0) && (batt_temp >= TEMP_THR_RESTART_FG))
-		mod_delayed_work(system_freezable_power_efficient_wq, &fg->empty_restart_fg_work,
+		schedule_delayed_work(&fg->empty_restart_fg_work,
 				msecs_to_jiffies(RESTART_FG_START_WORK_MS));
 	pr_debug("FG GEN4 driver probed successfully\n");
 	return 0;
@@ -7695,9 +7701,9 @@ static int fg_gen4_resume(struct device *dev)
 	struct fg_gen4_chip *chip = dev_get_drvdata(dev);
 	struct fg_dev *fg = &chip->fg;
 
-	mod_delayed_work(system_freezable_power_efficient_wq, &chip->ttf->ttf_work, 0);
+	schedule_delayed_work(&chip->ttf->ttf_work, 0);
 	if (fg_sram_dump)
-		mod_delayed_work(system_freezable_power_efficient_wq, &fg->sram_dump_work,
+		schedule_delayed_work(&fg->sram_dump_work,
 				msecs_to_jiffies(fg_sram_dump_period_ms));
 	schedule_delayed_work(&fg->soc_monitor_work,
 				msecs_to_jiffies(MONITOR_SOC_WAIT_MS));

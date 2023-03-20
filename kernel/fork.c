@@ -95,10 +95,6 @@
 #include <linux/thread_info.h>
 #include <linux/cpufreq_times.h>
 #include <linux/scs.h>
-#include <linux/simple_lmk.h>
-#include <linux/cpu_input_boost.h>
-#include <linux/devfreq_boost.h>
-#include <misc/d8g_helper.h>
 
 #include <asm/pgtable.h>
 #include <asm/pgalloc.h>
@@ -1066,7 +1062,6 @@ static inline void __mmput(struct mm_struct *mm)
 	ksm_exit(mm);
 	khugepaged_exit(mm); /* must run before exit_mmap */
 	exit_mmap(mm);
-	simple_lmk_mm_freed(mm);
 	mm_put_huge_zero_page(mm);
 	set_mm_exe_file(mm, NULL);
 	if (!list_empty(&mm->mmlist)) {
@@ -2357,8 +2352,6 @@ struct task_struct *fork_idle(int cpu)
 	return task;
 }
 
-extern bool limit_user __read_mostly;
-
 /*
  *  Ok, this is the main fork-routine.
  *
@@ -2377,19 +2370,6 @@ long _do_fork(unsigned long clone_flags,
 	struct task_struct *p;
 	int trace = 0;
 	long nr;
-
-	/* Boost CPU to the max for 150 ms when userspace launches an app */
-	if (!limited && oplus_panel_status == 2) {
-		if (task_is_zygote(current)) {
-			if (oprofile != 4) { 
-#ifdef CONFIG_CPU_INPUT_BOOST
-				cpu_input_boost_kick_max(150);
-#endif
-				devfreq_boost_kick_max(DEVFREQ_MSM_LLCCBW_DDR, 150);
-				devfreq_boost_kick_max(DEVFREQ_MSM_CPU_LLCCBW, 150);
-			}
-		}
-	}
 
 	/*
 	 * Determine whether and which event to report to ptracer.  When
