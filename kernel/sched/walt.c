@@ -3752,7 +3752,7 @@ int sched_ravg_window_handler(struct ctl_table *table,
 
 	mutex_lock(&mutex);
 
-	if (write && (HZ != 250 || !sysctl_sched_dynamic_ravg_window_enable))
+	if (write && (HZ != 300 || !sysctl_sched_dynamic_ravg_window_enable))
 		goto unlock;
 
 	prev_value = sysctl_sched_ravg_window_nr_ticks;
@@ -3769,7 +3769,7 @@ unlock:
 
 void sched_set_refresh_rate(enum fps fps)
 {
-	if (HZ == 250 && sysctl_sched_dynamic_ravg_window_enable) {
+	if (HZ == 300 && sysctl_sched_dynamic_ravg_window_enable) {
 		if (fps > FPS90)
 			display_sched_ravg_window_nr_ticks = 3;
 		else if (fps == FPS90)
