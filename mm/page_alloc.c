@@ -4743,7 +4743,8 @@ retry:
 	if (!limited && oplus_panel_status == 2) {
 		if (oprofile != 4) {
 #ifdef CONFIG_CPU_INPUT_BOOST
-			cpu_input_boost_kick_max(100);
+			if (oprofile != 0)
+				cpu_input_boost_kick_max(100);
 #endif
 			devfreq_boost_kick_max(DEVFREQ_MSM_LLCCBW_DDR, 100);
 		}
