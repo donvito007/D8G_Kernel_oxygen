@@ -320,10 +320,6 @@ source "fs/nls/Kconfig"
 source "fs/dlm/Kconfig"
 source "fs/unicode/Kconfig"
 
-config FS_HPB
-	bool "Support HPB on Filesystem"
-	default n
-
 endmenu
 
 config BLOCK_UNWANTED_FILES
