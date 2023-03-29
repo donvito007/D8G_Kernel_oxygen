@@ -25,6 +25,9 @@
 #ifdef CONFIG_DUAL_FUEL_GAUGE_BQ27Z561
 #include "dual_fuel_gauge_class.h"
 #endif
+#ifdef CONFIG_FORCE_FAST_CHARGE
+#include <linux/fastchg.h>
+#endif
 
 #define smblib_err(chg, fmt, ...)		\
 	pr_debug("%s: %s: " fmt, chg->name,	\
@@ -40,6 +43,9 @@
 	((typec_mode == POWER_SUPPLY_TYPEC_SOURCE_MEDIUM	\
 	|| typec_mode == POWER_SUPPLY_TYPEC_SOURCE_HIGH)	\
 	&& (!chg->typec_legacy || chg->typec_legacy_use_rp_icl))
+
+bool skip_thermal = false;
+module_param(skip_thermal, bool, 0644);
 
 bool off_charge_flag;
 static bool first_boot_flag;
