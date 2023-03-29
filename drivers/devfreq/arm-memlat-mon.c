@@ -271,8 +271,10 @@ static unsigned long get_cnt(struct memlat_hwmon *hw)
 static void delete_event(struct event_data *event)
 {
 	event->prev_count = event->last_delta = 0;
-	perf_event_release_kernel(event->pevent);
-	event->pevent = NULL;
+	if (event->pevent) {
+		perf_event_release_kernel(event->pevent);
+		event->pevent = NULL;
+	}
 }
 
 static struct perf_event_attr *alloc_attr(void)
@@ -349,10 +351,9 @@ static void memlat_monitor_work(struct work_struct *work)
 	struct memlat_mon *mon;
 	unsigned int i;
 
-	if (oops_in_progress)
-		return;
-
 	mutex_lock(&cpu_grp->mons_lock);
+	if (!cpu_grp->num_active_mons)
+		goto unlock_out;
 	update_counts(cpu_grp);
 	for (i = 0; i < cpu_grp->num_mons; i++) {
 		struct devfreq *df;
@@ -372,17 +373,22 @@ static void memlat_monitor_work(struct work_struct *work)
 
 	queue_delayed_work(memlat_wq, &cpu_grp->work,
 			   msecs_to_jiffies(cpu_grp->update_ms));
+
+unlock_out:
 	mutex_unlock(&cpu_grp->mons_lock);
 }
 
 static int start_hwmon(struct memlat_hwmon *hw)
 {
 	int ret = 0;
-	struct perf_event_attr *attr = alloc_attr();
 	unsigned int cpu;
 	struct memlat_mon *mon = to_mon(hw);
 	struct memlat_cpu_grp *cpu_grp = mon->cpu_grp;
 	bool should_init_cpu_grp;
+	struct perf_event_attr *attr = alloc_attr();
+
+	if (!attr)
+		return -ENOMEM;
 
 	mutex_lock(&cpu_grp->mons_lock);
 	should_init_cpu_grp = !(cpu_grp->num_active_mons++);
@@ -459,7 +465,7 @@ static void stop_hwmon(struct memlat_hwmon *hw)
 	}
 
 	if (!cpu_grp->num_active_mons) {
-		cancel_delayed_work_sync(&cpu_grp->work);
+		cancel_delayed_work(&cpu_grp->work);
 		free_common_evs(cpu_grp);
 	}
 	mutex_unlock(&cpu_grp->mons_lock);
@@ -483,12 +489,12 @@ static void set_update_ms(struct memlat_cpu_grp *cpu_grp)
 	}
 
 	if (new_update_ms == UINT_MAX) {
-		cancel_delayed_work_sync(&cpu_grp->work);
+		cancel_delayed_work(&cpu_grp->work);
 	} else if (cpu_grp->update_ms == UINT_MAX) {
 		queue_delayed_work(memlat_wq, &cpu_grp->work,
 				   msecs_to_jiffies(new_update_ms));
 	} else if (new_update_ms > cpu_grp->update_ms) {
-		cancel_delayed_work_sync(&cpu_grp->work);
+		cancel_delayed_work(&cpu_grp->work);
 		queue_delayed_work(memlat_wq, &cpu_grp->work,
 				   msecs_to_jiffies(new_update_ms));
 	}
