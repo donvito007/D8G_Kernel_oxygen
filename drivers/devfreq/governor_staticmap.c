@@ -133,8 +133,7 @@ static struct core_dev_map *init_core_dev_map(struct device *dev,
 	return tbl;
 }
 static int devfreq_static_map_get_freq(struct devfreq *df,
-					unsigned long *freq,
-					u32 *flag)
+					unsigned long *freq)
 {
 	struct static_map_gov *gov_node = df->data;
 

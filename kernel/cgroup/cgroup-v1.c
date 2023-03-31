@@ -14,7 +14,6 @@
 #include <linux/pid_namespace.h>
 #include <linux/cgroupstats.h>
 #include <linux/binfmts.h>
-#include <linux/cpu_input_boost.h>
 #include <linux/devfreq_boost.h>
 #include <misc/d8g_helper.h>
 
@@ -551,23 +550,19 @@ static ssize_t __cgroup1_procs_write(struct kernfs_open_file *of,
                !memcmp(of->kn->parent->name, "top-app", sizeof("top-app")) &&
                task_is_zygote(task->parent)) {
 			if (oprofile == 4) { 
-				devfreq_boost_kick_max(DEVFREQ_MSM_LLCCBW_DDR, 100);
-				devfreq_boost_kick_max(DEVFREQ_MSM_CPU_LLCCBW, 100);
+				devfreq_boost_kick_max(DEVFREQ_MSM_CPUBW, 100);
 			} else if (oprofile == 0) { 
-				devfreq_boost_kick_max(DEVFREQ_MSM_LLCCBW_DDR, 250);
-				devfreq_boost_kick_max(DEVFREQ_MSM_CPU_LLCCBW, 250);
+				devfreq_boost_kick_max(DEVFREQ_MSM_CPUBW, 250);
 			} else if (oprofile == 2) { 
 #ifdef CONFIG_CPU_INPUT_BOOST
 				cpu_input_boost_kick_max(500);
 #endif
-				devfreq_boost_kick_max(DEVFREQ_MSM_LLCCBW_DDR, 500);
-				devfreq_boost_kick_max(DEVFREQ_MSM_CPU_LLCCBW, 500);
+				devfreq_boost_kick_max(DEVFREQ_MSM_CPUBW, 500);
 			} else {
 #ifdef CONFIG_CPU_INPUT_BOOST
 				cpu_input_boost_kick_max(1000);
 #endif
-				devfreq_boost_kick_max(DEVFREQ_MSM_LLCCBW_DDR, 1000);
-				devfreq_boost_kick_max(DEVFREQ_MSM_CPU_LLCCBW, 1000);
+				devfreq_boost_kick_max(DEVFREQ_MSM_CPUBW, 1000);
 			}
 		}
 	}

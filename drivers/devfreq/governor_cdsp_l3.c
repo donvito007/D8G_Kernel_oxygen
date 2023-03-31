@@ -45,8 +45,7 @@ static struct cdsprm_l3 cdsprm = {
 };
 
 static int devfreq_get_target_freq(struct devfreq *df,
-				unsigned long *freq,
-				u32 *flag)
+			unsigned long *freq)
 {
 	if (freq)
 		*freq = (unsigned long)p_me.l3_freq_hz;

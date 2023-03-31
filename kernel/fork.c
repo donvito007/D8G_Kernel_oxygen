@@ -99,7 +99,6 @@
 #include <linux/cpuset.h>
 #endif
 #include <linux/simple_lmk.h>
-#include <linux/cpu_input_boost.h>
 #include <linux/devfreq_boost.h>
 #include <misc/d8g_helper.h>
 
@@ -2370,8 +2369,7 @@ long _do_fork(unsigned long clone_flags,
 #ifdef CONFIG_CPU_INPUT_BOOST
 				cpu_input_boost_kick_max(150);
 #endif
-				devfreq_boost_kick_max(DEVFREQ_MSM_LLCCBW_DDR, 150);
-				devfreq_boost_kick_max(DEVFREQ_MSM_CPU_LLCCBW, 150);
+				devfreq_boost_kick_max(DEVFREQ_MSM_CPUBW, 150);
 			}
 		}
 	}

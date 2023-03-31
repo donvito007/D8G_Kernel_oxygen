@@ -70,7 +70,6 @@
 #include <linux/nmi.h>
 #include <linux/khugepaged.h>
 #include <linux/psi.h>
-#include <linux/cpu_input_boost.h>
 #include <linux/devfreq_boost.h>
 #include <misc/d8g_helper.h>
 
@@ -4691,8 +4690,7 @@ retry:
 #ifdef CONFIG_CPU_INPUT_BOOST
 			cpu_input_boost_kick_max(100);
 #endif
-			devfreq_boost_kick_max(DEVFREQ_MSM_LLCCBW_DDR, 100);
-			devfreq_boost_kick_max(DEVFREQ_MSM_CPU_LLCCBW, 100);
+			devfreq_boost_kick_max(DEVFREQ_MSM_CPUBW, 100);
 		}
 	}
 
