@@ -15,7 +15,6 @@
 #include <linux/device.h>
 #include <linux/fs.h>
 #include <linux/uaccess.h>
-#include <linux/uio.h>
 #include <linux/rtmutex.h>
 #include "internal.h"
 
@@ -88,6 +87,10 @@ static ssize_t pmsg_write_user(const char __user *buf, size_t count)
 	pstore_record_init(&record, psinfo);
 	record.type = PSTORE_TYPE_PMSG;
 	record.size = count;
+
+	/* check outside lock, page in any data. write_user also checks */
+	if (!access_ok(VERIFY_READ, buf, count))
+		return -EFAULT;
 
 	rt_mutex_lock(&pmsg_lock);
 	ret = psinfo->write_user(&record, buf);

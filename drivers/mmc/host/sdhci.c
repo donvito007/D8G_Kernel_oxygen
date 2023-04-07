@@ -2088,7 +2088,6 @@ static bool sdhci_presetable_values_change(struct sdhci_host *host, struct mmc_i
 	       (sdhci_preset_needed(host, ios->timing) || host->drv_type != ios->drv_type);
 }
 
-
 void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 {
 	struct sdhci_host *host = mmc_priv(mmc);
@@ -2120,9 +2119,7 @@ void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			mmc_card_sdio(host->mmc->card))
 		sdhci_cfg_irq(host, false, false);
 
-	if (ios->clock &&
-	    ((ios->clock != host->clock) || (ios->timing != host->timing))) {
-		spin_unlock_irqrestore(&host->lock, flags);
+	if (!ios->clock || ios->clock != host->clock) {
 		turning_on_clk = ios->clock && !host->clock;
 
 		host->ops->set_clock(host, ios->clock);

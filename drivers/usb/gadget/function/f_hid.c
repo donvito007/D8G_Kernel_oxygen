@@ -303,7 +303,7 @@ static ssize_t f_hidg_intout_read(struct file *file, char __user *buffer,
 
 	spin_lock_irqsave(&hidg->read_spinlock, flags);
 
-#define READ_COND_INTOUT (!list_empty(&hidg->completed_out_req) || !hidg->bound)
+#define READ_COND_INTOUT (!list_empty(&hidg->completed_out_req))
 
 	/* wait for at least one buffer to complete */
 	while (!READ_COND_INTOUT) {
@@ -459,7 +459,7 @@ static ssize_t f_hidg_write(struct file *file, const char __user *buffer,
 		return -ESHUTDOWN;
 	}
 
-#define WRITE_COND (!hidg->write_pending || !hidg->bound)
+#define WRITE_COND (!hidg->write_pending)
 try_again:
 	/* write queue */
 	while (!WRITE_COND) {
