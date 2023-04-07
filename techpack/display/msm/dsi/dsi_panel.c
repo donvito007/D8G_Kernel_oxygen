@@ -715,10 +715,7 @@ int dsi_panel_update_backlight(struct dsi_panel *panel,
 	if (panel->bl_config.bl_inverted_dbv)
 		bl_lvl = (((bl_lvl & 0xff) << 8) | (bl_lvl >> 8));
 
-	if (panel->bl_config.bl_dcs_subtype == 0xc2) {
-		rc = dsi_panel_dcs_set_display_brightness_c2(dsi, bl_lvl);
-	} else {
-		if (panel->mi_cfg.bl_is_big_endian) {
+	if (panel->mi_cfg.bl_is_big_endian) {
 			if ((!mi_cfg->last_bl_level && bl_lvl) ||
 				(mi_cfg->last_bl_level && !bl_lvl))
 				use_count = 10;
@@ -735,9 +732,10 @@ int dsi_panel_update_backlight(struct dsi_panel *panel,
 				}
 			}
 			rc = mipi_dsi_dcs_set_display_brightness_big_endian(dsi, bl_lvl);
-		} else {
-			rc = mipi_dsi_dcs_set_display_brightness(dsi, bl_lvl);
-		}
+	} else if (panel->bl_config.bl_dcs_subtype == 0xc2) {
+		rc = dsi_panel_dcs_set_display_brightness_c2(dsi, bl_lvl);
+	} else {
+		rc = mipi_dsi_dcs_set_display_brightness(dsi, bl_lvl);
 	}
 
 	if (mi_cfg->local_hbm_enabled) {

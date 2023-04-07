@@ -1825,7 +1825,6 @@ static struct ctl_table vm_table[] = {
 #ifdef CONFIG_OPLUS_ZRAM_OPT
 	{
 	    .procname	= "direct_swappiness",
->>>>>>> ae705927f20a (Add Oneplus drivers)
 		.data		= &direct_vm_swappiness,
 		.maxlen 	= sizeof(direct_vm_swappiness),
 		.mode		= 0644,
