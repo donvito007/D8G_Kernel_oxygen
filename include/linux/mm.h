@@ -1298,6 +1298,12 @@ struct address_space *page_mapping_file(struct page *page);
  */
 static inline bool page_is_pfmemalloc(struct page *page)
 {
+        /*
+         * Isolated vma might be freed without exclusive mmap_lock but
+         * speculative page fault handler still needs to know it was changed.
+         */
+        if (!RB_EMPTY_NODE(&vma->vm_rb))
+		WARN_ON_ONCE(!rwsem_is_locked(&(vma->vm_mm)->mmap_sem));
 	/*
 	 * Page index cannot be this large so this must be
 	 * a pfmemalloc page.
